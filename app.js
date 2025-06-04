@@ -1,5 +1,5 @@
 import express from 'express';
-import { createSseHandler } from '@modelcontextprotocol/sdk/server/http.js';
+import { createSseHandler } from '@modelcontextprotocol/sdk/server/http';
 import { createMCPLoLServer } from './server.js'; // On importe notre fonction depuis server.js
 import 'dotenv/config'; // Pour s'assurer que les variables d'environnement sont chargées
 
