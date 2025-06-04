@@ -1,319 +1,87 @@
-#!/usr/bin/env node
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { Server, BaseTool } from '@modelcontextprotocol/sdk/server/index.js';
 import axios from 'axios';
-import dotenv from 'dotenv';
+import 'dotenv/config'; // Pour charger les variables d'environnement
 
-dotenv.config();
-
+// On garde ta clé API Riot
 const RIOT_API_KEY = process.env.RIOT_API_KEY;
-const REGION = 'euw1'; // Change selon ta région
+const RIOT_API_BASE_URL = 'https://euw1.api.riotgames.com'; // Change si tu es sur un autre serveur (ex: na1)
 
-// Configuration des versions (à mettre à jour régulièrement)
-const CURRENT_VERSION = '14.24.1';
-const DDRAGON_URL = `https://ddragon.leagueoflegends.com/cdn/${CURRENT_VERSION}`;
-
-class LoLMCPServer {
-  constructor() {
-    this.server = new Server(
-      {
-        name: 'lol-optimizer',
-        version: '1.0.0',
-      },
-      {
-        capabilities: {
-          tools: {},
-        },
-      }
-    );
-
-    this.setupHandlers();
-    
-    // Cache pour éviter de spam l'API
-    this.cache = {
-      champions: null,
-      items: null,
-      runes: null,
-      lastUpdate: 0
-    };
-  }
-
-  setupHandlers() {
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
-      tools: [
-        {
-          name: 'get_champion_data',
-          description: 'Récupère les données détaillées d\'un champion',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              championName: {
-                type: 'string',
-                description: 'Nom du champion (ex: Yasuo, Ahri)',
-              },
-            },
-            required: ['championName'],
-          },
-        },
-        {
-          name: 'get_optimal_build',
-          description: 'Calcule le build optimal pour un champion contre une composition donnée',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              championName: {
-                type: 'string',
-                description: 'Nom du champion',
-              },
-              enemyTeam: {
-                type: 'array',
-                description: 'Liste des champions ennemis',
-                items: { type: 'string' }
-              },
-              gamePhase: {
-                type: 'string',
-                description: 'Phase du jeu: early, mid, late',
-                enum: ['early', 'mid', 'late']
-              },
-            },
-            required: ['championName'],
-          },
-        },
-        {
-          name: 'analyze_matchup',
-          description: 'Analyse un matchup spécifique entre deux champions',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              yourChampion: {
-                type: 'string',
-                description: 'Ton champion',
-              },
-              enemyChampion: {
-                type: 'string',
-                description: 'Champion ennemi',
-              },
-            },
-            required: ['yourChampion', 'enemyChampion'],
-          },
-        },
-        {
-          name: 'get_all_items',
-          description: 'Récupère tous les items du jeu avec leurs stats',
-          inputSchema: {
-            type: 'object',
-            properties: {},
-          },
-        },
-      ],
-    }));
-
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      switch (request.params.tool.name) {
-        case 'get_champion_data':
-          return await this.getChampionData(request.params.tool.arguments);
-        case 'get_optimal_build':
-          return await this.getOptimalBuild(request.params.tool.arguments);
-        case 'analyze_matchup':
-          return await this.analyzeMatchup(request.params.tool.arguments);
-        case 'get_all_items':
-          return await this.getAllItems();
-        default:
-          throw new Error(`Unknown tool: ${request.params.tool.name}`);
-      }
-    });
-  }
-
-  async loadGameData() {
-    const now = Date.now();
-    // Cache de 1 heure
-    if (now - this.cache.lastUpdate < 3600000 && this.cache.champions) {
-      return;
+// L'outil pour chercher les stats d'un champion
+class ChampionStatsTool extends BaseTool {
+    constructor() {
+        super({
+            name: "get_champion_stats",
+            description: "Récupère les statistiques de base d'un champion de League of Legends par son nom.",
+            parameters: {
+                type: "object",
+                properties: {
+                    championName: {
+                        type: "string",
+                        description: "Le nom du champion (ex: Yasuo, Ahri)."
+                    }
+                },
+                required: ["championName"]
+            }
+        });
     }
 
-    try {
-      // Charger les champions
-      const championsResponse = await axios.get(`${DDRAGON_URL}/data/fr_FR/champion.json`);
-      this.cache.champions = championsResponse.data.data;
+    async _call(params) {
+        const championName = params.championName;
+        if (!RIOT_API_KEY) {
+            return "Erreur: RIOT_API_KEY n'est pas configurée.";
+        }
 
-      // Charger les items
-      const itemsResponse = await axios.get(`${DDRAGON_URL}/data/fr_FR/item.json`);
-      this.cache.items = itemsResponse.data.data;
+        try {
+            // D'abord, on récupère la dernière version des données du jeu
+            const versionsResponse = await axios.get('https://ddragon.leagueoflegends.com/api/versions.json');
+            const latestVersion = versionsResponse.data[0];
 
-      // Charger les runes
-      const runesResponse = await axios.get(`${DDRAGON_URL}/data/fr_FR/runesReforged.json`);
-      this.cache.runes = runesResponse.data;
+            // Ensuite, on récupère les données de tous les champions pour cette version
+            const allChampionsResponse = await axios.get(`https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`);
+            const championsData = allChampionsResponse.data.data;
 
-      this.cache.lastUpdate = now;
-    } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
+            // On cherche le champion par son nom. Il faut être malin car les noms peuvent avoir des capitalisations différentes.
+            // Et l'API utilise des "ID" qui sont souvent le nom capitalisé (Yasuo, MissFortune, etc.)
+            let championKey = Object.keys(championsData).find(key => key.toLowerCase() === championName.toLowerCase());
+            
+            // Si on ne trouve pas par nom direct, on peut essayer de matcher l'ID (qui est souvent le nom capitalisé)
+            if (!championKey) {
+                 championKey = Object.keys(championsData).find(key => championsData[key].id.toLowerCase() === championName.toLowerCase());
+            }
+            // Cas spéciaux comme "Wukong" qui est "MonkeyKing" dans l'API
+            if (championName.toLowerCase() === "wukong") championKey = "MonkeyKing";
+
+
+            if (!championKey || !championsData[championKey]) {
+                return `Champion "${championName}" non trouvé. Vérifie l'orthographe. Noms valides : ${Object.keys(championsData).slice(0,5).join(', ')}...`;
+            }
+
+            const champion = championsData[championKey];
+            return {
+                id: champion.id,
+                name: champion.name,
+                title: champion.title,
+                stats: champion.stats,
+                tags: champion.tags,
+                blurb: champion.blurb
+            };
+        } catch (error) {
+            console.error("Erreur Riot API:", error.response ? error.response.data : error.message);
+            return `Erreur lors de la récupération des stats pour ${championName}. Détails: ${error.message}`;
+        }
     }
-  }
-
-  async getChampionData({ championName }) {
-    await this.loadGameData();
-    
-    // Trouver le champion (insensible à la casse)
-    const champion = Object.values(this.cache.champions).find(
-      champ => champ.name.toLowerCase() === championName.toLowerCase() ||
-               champ.id.toLowerCase() === championName.toLowerCase()
-    );
-
-    if (!champion) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Champion "${championName}" non trouvé. Vérifie l'orthographe.`,
-          },
-        ],
-      };
-    }
-
-    // Charger les données détaillées du champion
-    try {
-      const detailResponse = await axios.get(
-        `${DDRAGON_URL}/data/fr_FR/champion/${champion.id}.json`
-      );
-      const detailedData = detailResponse.data.data[champion.id];
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              name: detailedData.name,
-              title: detailedData.title,
-              stats: detailedData.stats,
-              abilities: {
-                passive: detailedData.passive,
-                Q: detailedData.spells[0],
-                W: detailedData.spells[1],
-                E: detailedData.spells[2],
-                R: detailedData.spells[3],
-              },
-              tips: {
-                ally: detailedData.allytips,
-                enemy: detailedData.enemytips,
-              },
-            }, null, 2),
-          },
-        ],
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Erreur lors de la récupération des données: ${error.message}`,
-          },
-        ],
-      };
-    }
-  }
-
-  async getOptimalBuild({ championName, enemyTeam = [], gamePhase = 'mid' }) {
-    await this.loadGameData();
-
-    // Analyse de la composition ennemie
-    let enemyStats = {
-      totalAD: 0,
-      totalAP: 0,
-      totalTanks: 0,
-      ccCount: 0,
-    };
-
-    // Calcul simplifié pour la démo
-    const buildRecommendation = {
-      core: [],
-      situational: [],
-      boots: null,
-      runes: {
-        primary: null,
-        secondary: null,
-      },
-    };
-
-    // Logique de build basique
-    if (gamePhase === 'early') {
-      buildRecommendation.core = ['Doran\'s Blade', 'Potion de vie'];
-    } else if (gamePhase === 'mid') {
-      buildRecommendation.core = ['Kraken Slayer', 'Bottes de berserker'];
-    } else {
-      buildRecommendation.core = ['Kraken Slayer', 'Soif-de-sang', 'Lame d\'infini'];
-    }
-
-    // Recommandations contre certains types d'ennemis
-    if (enemyTeam.some(champ => ['Zed', 'Talon', 'Yasuo'].includes(champ))) {
-      buildRecommendation.situational.push('Plaque du mort');
-    }
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(buildRecommendation, null, 2),
-        },
-      ],
-    };
-  }
-
-  async analyzeMatchup({ yourChampion, enemyChampion }) {
-    await this.loadGameData();
-
-    // Analyse basique du matchup
-    const analysis = {
-      difficulty: 'Medium',
-      keyPoints: [
-        'Respecte son niveau 6',
-        'Trade quand ses sorts sont en CD',
-        'Ward les bushes',
-      ],
-      itemsToRush: ['Hexdrinker si AP', 'Tabi Ninja si AD'],
-      winCondition: 'Snowball en early game',
-    };
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(analysis, null, 2),
-        },
-      ],
-    };
-  }
-
-  async getAllItems() {
-    await this.loadGameData();
-
-    // Filtrer les items importants (pas les consommables de base)
-    const importantItems = Object.entries(this.cache.items)
-      .filter(([id, item]) => item.gold.total > 500 && item.maps['11'])
-      .map(([id, item]) => ({
-        id,
-        name: item.name,
-        cost: item.gold.total,
-        stats: item.stats,
-        description: item.plaintext,
-      }));
-
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(importantItems, null, 2),
-        },
-      ],
-    };
-  }
-
-  async run() {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    console.error('MCP LoL Server démarré');
-  }
 }
 
-const server = new LoLMCPServer();
-server.run().catch(console.error);
+// On crée une fonction qui fabrique notre serveur MCP.
+// Ca nous permettra de l'utiliser dans app.js
+export function createMCPLoLServer() {
+    const server = new Server({
+        tools: [new ChampionStatsTool()],
+        // Tu pourras ajouter d'autres outils ici
+    });
+    return server;
+}
+
+// On retire la partie qui démarrait le serveur automatiquement ici,
+// car c'est app.js qui va s'en charger.
+// console.log("MCP LoL Server (version module) prêt à être utilisé par app.js");
