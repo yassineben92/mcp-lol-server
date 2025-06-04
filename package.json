@@ -4,11 +4,12 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "latest",
     "axios": "latest",
-    "dotenv": "latest"
+    "dotenv": "latest",
+    "express": "^5.1.0"
   }
 }
