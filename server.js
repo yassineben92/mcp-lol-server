@@ -1,4 +1,4 @@
-import { Server, BaseTool } from '@modelcontextprotocol/sdk/server/index.js';
+import { Server, BaseTool } from '@modelcontextprotocol/sdk/server';
 import axios from 'axios';
 import 'dotenv/config'; // Pour charger les variables d'environnement
 
