@@ -16,12 +16,12 @@ The server exposes a health check at `/health` and provides an SSE endpoint at `
 Cette instance MCP expose désormais trois outils&nbsp;:
 
 1. **get_champion_stats** – Récupère les statistiques de base d'un champion par son nom.
-2. **get_all_items** – Retourne la liste complète des objets de League of Legends avec leurs statistiques.
+2. **get_all_items** – Retourne la liste complète des objets ou permet de filtrer par nom ou par tag.
 3. **get_all_runes** – Retourne la liste complète des runes disponibles.
 
 ### Mode hors ligne
 
-Si l'API Riot Games n'est pas accessible, le serveur utilise les fichiers
-`data/items.json` et `data/runes.json` pour répondre aux requêtes
-`get_all_items` et `get_all_runes`. Cela garantit que les données restent
-disponibles même sans connexion réseau.
+Lors de la première requête, le serveur met en cache les données récupérées auprès de Riot Games.
+En cas d'échec ou hors connexion, il se rabat automatiquement sur les fichiers
+`data/items.json` et `data/runes.json`. Ainsi, `get_all_items` et `get_all_runes`
+fonctionnent même sans accès réseau.
