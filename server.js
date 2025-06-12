@@ -37,7 +37,7 @@ async function loadChampion(championName) {
   );
   if (!championKey) {
     championKey = Object.keys(cachedChampions).find(
-      (key) => cachedChampions![key].id.toLowerCase() === championName.toLowerCase(),
+      (key) => cachedChampions[key].id.toLowerCase() === championName.toLowerCase(),
     );
   }
   if (championName.toLowerCase() === 'wukong') championKey = 'MonkeyKing';
