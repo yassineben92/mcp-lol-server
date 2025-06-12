@@ -9,7 +9,6 @@ const PORT = process.env.PORT || 3000; // Railway nous donne le port via process
 // On crée notre instance de serveur MCP LoL
 const mcpLoLServer = createMCPLoLServer();
 
-app.use(express.json());
 
 const sseTransports = {};
 
@@ -38,7 +37,7 @@ app.get('/sse', async (req, res) => {
 });
 
 // Endpoint pour recevoir les messages du client
-app.post('/messages', async (req, res) => {
+app.post('/messages', express.json(), async (req, res) => {
   const sessionId = req.query.sessionId;
   const transport = sseTransports[sessionId];
   if (transport) {
@@ -46,6 +45,22 @@ app.post('/messages', async (req, res) => {
   } else {
     res.status(400).send('No transport found for sessionId');
   }
+});
+
+// Middleware de gestion des erreurs pour éviter les crashs en cas de requête
+// interrompue ou de JSON invalide
+app.use((err, req, res, next) => {
+  console.error('Error handling request:', err.message);
+  if (err.type === 'request.aborted') {
+    return res.status(400).send('Request aborted');
+  }
+  if (err.type === 'entity.too.large') {
+    return res.status(413).send('Payload too large');
+  }
+  if (err instanceof SyntaxError) {
+    return res.status(400).send('Invalid JSON');
+  }
+  res.status(500).send('Internal server error');
 });
 
 app.listen(PORT, '0.0.0.0', () => {
