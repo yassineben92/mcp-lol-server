@@ -112,7 +112,7 @@ export function createMCPLoLServer() {
       } catch (error) {
         try {
           const localData = await import('./data/items.json', {
-            assert: { type: 'json' },
+            with: { type: 'json' },
           });
           return {
             content: [
@@ -161,7 +161,7 @@ export function createMCPLoLServer() {
       } catch (error) {
         try {
           const localData = await import('./data/runes.json', {
-            assert: { type: 'json' },
+            with: { type: 'json' },
           });
           return {
             content: [
