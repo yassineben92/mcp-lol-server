@@ -4,6 +4,28 @@ import { z } from 'zod';
 import 'dotenv/config';
 import { readFile } from 'fs/promises';
 
+let cachedItems = null;
+
+async function loadItems() {
+  if (cachedItems) return cachedItems;
+  try {
+    const versionsResponse = await axios.get(
+      'https://ddragon.leagueoflegends.com/api/versions.json',
+    );
+    const latestVersion = versionsResponse.data[0];
+
+    const itemsResponse = await axios.get(
+      `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/item.json`,
+    );
+    cachedItems = itemsResponse.data.data;
+    return cachedItems;
+  } catch (_) {
+    const json = await readFile(new URL('./data/items.json', import.meta.url), 'utf-8');
+    cachedItems = JSON.parse(json);
+    return cachedItems;
+  }
+}
+
 const RIOT_API_KEY = process.env.RIOT_API_KEY;
 
 export function createMCPLoLServer() {
@@ -97,56 +119,56 @@ export function createMCPLoLServer() {
     'get_all_items',
     {
       description:
-        'Récupère la liste complète des objets de League of Legends avec leurs statistiques.',
-      inputSchema: {},
+        'Récupère la liste complète ou filtrée des objets de League of Legends.',
+      inputSchema: {
+        query: z.string().optional().describe("Filtre par nom ou identifiant"),
+        tag: z.string().optional().describe("Filtre par tag d'objet (Damage, etc.)"),
+      },
     },
-    async () => {
+    async ({ query, tag }) => {
       try {
-        const versionsResponse = await axios.get(
-          'https://ddragon.leagueoflegends.com/api/versions.json',
-        );
-        const latestVersion = versionsResponse.data[0];
+        const data = await loadItems();
+        let entries = Object.entries(data);
 
-        const itemsResponse = await axios.get(
-          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/item.json`,
-        );
-        const items = itemsResponse.data.data;
+        if (query) {
+          const q = query.toLowerCase();
+          entries = entries.filter(
+            ([id, item]) =>
+              id.toLowerCase().includes(q) || item.name.toLowerCase().includes(q),
+          );
+        }
+
+        if (tag) {
+          const t = tag.toLowerCase();
+          entries = entries.filter(
+            ([, item]) =>
+              Array.isArray(item.tags) &&
+              item.tags.some((tg) => tg.toLowerCase() === t),
+          );
+        }
+
+        const simplified = entries.map(([id, item]) => ({
+          id,
+          name: item.name,
+          plaintext: item.plaintext,
+          tags: item.tags,
+          stats: item.stats,
+        }));
 
         return {
-          content: [{ type: 'text', text: JSON.stringify(items, null, 2) }],
-          structuredContent: items,
+          content: [{ type: 'text', text: JSON.stringify(simplified, null, 2) }],
+          structuredContent: simplified,
         };
       } catch (error) {
-        // Fallback local
-        try {
-          const json = await readFile(
-            new URL('./data/items.json', import.meta.url),
-            'utf-8',
-          );
-          const localData = JSON.parse(json);
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text:
-                  "Données locales utilisées car la récupération depuis l'API a échoué :\n" +
-                  JSON.stringify(localData, null, 2),
-              },
-            ],
-            structuredContent: localData,
-          };
-        } catch (e) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Erreur lors de la récupération des objets. Détails : ${error.message}`,
-              },
-            ],
-            isError: true,
-          };
-        }
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Erreur lors de la récupération des objets. Détails : ${error.message}`,
+            },
+          ],
+          isError: true,
+        };
       }
     },
   );
