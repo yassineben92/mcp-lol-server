@@ -1,0 +1,29 @@
+[
+  {
+    "id": 8100,
+    "key": "Domination",
+    "icon": "perk-images/Styles/7200_Domination.png",
+    "name": "Domination",
+    "slots": [
+      {
+        "runes": [
+          {
+            "id": 8112,
+            "key": "Electrocute",
+            "icon": "perk-images/Styles/Domination/Electrocute/Electrocute.png",
+            "name": "Electrocute",
+            "shortDesc": "Hitting a champion with 3 separate attacks or abilities in 3s deals bonus adaptive damage.",
+            "longDesc": "Hitting a champion with 3 separate attacks or abilities within 3s deals bonus adaptive damage."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": 8300,
+    "key": "Inspiration",
+    "icon": "perk-images/Styles/7203_Whimsy.png",
+    "name": "Inspiration",
+    "slots": []
+  }
+]
