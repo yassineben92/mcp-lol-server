@@ -1,0 +1,98 @@
+{
+  "Ahri": {
+    "id": "Ahri",
+    "name": "Ahri",
+    "title": "the Nine-Tailed Fox",
+    "tags": ["Mage", "Assassin"],
+    "blurb": "A cunning mage who lures and charms her opponents.",
+    "stats": {
+      "hp": 570,
+      "hpperlevel": 96,
+      "mp": 418,
+      "mpperlevel": 25,
+      "attackdamage": 53,
+      "attackdamageperlevel": 3,
+      "attackspeedperlevel": 2,
+      "movespeed": 330
+    },
+    "passive": "Essence Theft: Gaining stacks from abilities heals Ahri when she reaches nine charges.",
+    "spells": [
+      {
+        "id": "AhriQ",
+        "name": "Orb of Deception",
+        "description": "Deals 40/65/90/115/140 (+35% AP) magic damage outbound and true damage on return.",
+        "cooldown": [7,7,7,7,7],
+        "cost": [65,70,75,80,85]
+      },
+      {
+        "id": "AhriW",
+        "name": "Fox-Fire",
+        "description": "Releases flames that seek nearby enemies for 40/65/90/115/140 (+30% AP) damage.",
+        "cooldown": [9,8,7,6,5],
+        "cost": [40,40,40,40,40]
+      },
+      {
+        "id": "AhriE",
+        "name": "Charm",
+        "description": "Charms an enemy dealing 60/95/130/165/200 (+60% AP) magic damage.",
+        "cooldown": [14,13,12,11,10],
+        "cost": [50,50,50,50,50]
+      },
+      {
+        "id": "AhriR",
+        "name": "Spirit Rush",
+        "description": "Dashes forward and fires essence bolts dealing 60/90/120 (+35% AP) damage per bolt.",
+        "cooldown": [130,105,80],
+        "cost": [100,100,100]
+      }
+    ]
+  },
+  "Yasuo": {
+    "id": "Yasuo",
+    "name": "Yasuo",
+    "title": "the Unforgiven",
+    "tags": ["Fighter", "Assassin"],
+    "blurb": "A mobile fighter who chases down targets with swift strikes.",
+    "stats": {
+      "hp": 520,
+      "hpperlevel": 109,
+      "mp": 100,
+      "mpperlevel": 0,
+      "attackdamage": 60,
+      "attackdamageperlevel": 3,
+      "attackspeedperlevel": 3,
+      "movespeed": 345
+    },
+    "passive": "Way of the Wanderer: Critical strike chance is doubled but damage is reduced.",
+    "spells": [
+      {
+        "id": "YasuoQ",
+        "name": "Steel Tempest",
+        "description": "Thrusts forward dealing 20/45/70/95/120 (+100% AD) physical damage.",
+        "cooldown": [4,4,3.5,3,2.5],
+        "cost": [0,0,0,0,0]
+      },
+      {
+        "id": "YasuoW",
+        "name": "Wind Wall",
+        "description": "Creates a wall that blocks enemy projectiles for 4 seconds.",
+        "cooldown": [30,27,24,21,18],
+        "cost": [0,0,0,0,0]
+      },
+      {
+        "id": "YasuoE",
+        "name": "Sweeping Blade",
+        "description": "Dashes through an enemy dealing 70/90/110/130/150 (+60% AP) magic damage.",
+        "cooldown": [0.5,0.4,0.3,0.2,0.1],
+        "cost": [0,0,0,0,0]
+      },
+      {
+        "id": "YasuoR",
+        "name": "Last Breath",
+        "description": "Blinks to airborne enemies dealing 200/300/400 (+150% bonus AD) physical damage.",
+        "cooldown": [80,55,30],
+        "cost": [0,0,0]
+      }
+    ]
+  }
+}
