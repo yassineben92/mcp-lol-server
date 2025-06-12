@@ -9,7 +9,7 @@ npm install
 npm start
 ```
 
-The server exposes a health check at `/health` and provides an SSE endpoint at `/sse` for MCP clients.
+The server exposes a health check at `/health` and provides an SSE endpoint at `/sse` for MCP clients. CORS is enabled so the server can be called from any origin.
 
 ## Tools disponibles
 
