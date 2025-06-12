@@ -88,5 +88,74 @@ export function createMCPLoLServer() {
     }
   );
 
+  server.registerTool(
+    'get_all_items',
+    {
+      description:
+        'Récupère la liste complète des objets de League of Legends avec leurs statistiques.',
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const versionsResponse = await axios.get(
+          'https://ddragon.leagueoflegends.com/api/versions.json'
+        );
+        const latestVersion = versionsResponse.data[0];
+        const itemsResponse = await axios.get(
+          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/item.json`
+        );
+        const items = itemsResponse.data.data;
+        return {
+          content: [{ type: 'text', text: JSON.stringify(items, null, 2) }],
+          structuredContent: items,
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Erreur lors de la récupération des objets. Détails: ${error.message}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.registerTool(
+    'get_all_runes',
+    {
+      description: 'Récupère la liste complète des runes de League of Legends.',
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        const versionsResponse = await axios.get(
+          'https://ddragon.leagueoflegends.com/api/versions.json'
+        );
+        const latestVersion = versionsResponse.data[0];
+        const runesResponse = await axios.get(
+          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/runesReforged.json`
+        );
+        const runes = runesResponse.data;
+        return {
+          content: [{ type: 'text', text: JSON.stringify(runes, null, 2) }],
+          structuredContent: runes,
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Erreur lors de la récupération des runes. Détails: ${error.message}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
   return server;
 }
