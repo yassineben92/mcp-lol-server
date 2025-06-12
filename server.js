@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import axios from 'axios';
 import { z } from 'zod';
 import 'dotenv/config';
+import { readFile } from 'fs/promises';
 
 const RIOT_API_KEY = process.env.RIOT_API_KEY;
 
@@ -11,10 +12,14 @@ export function createMCPLoLServer() {
     version: '1.0.0',
   });
 
+  /* ------------------------------------------------------------------ */
+  /*  TOOL : get_champion_stats                                         */
+  /* ------------------------------------------------------------------ */
   server.registerTool(
     'get_champion_stats',
     {
-      description: "Récupère les statistiques de base d'un champion de League of Legends par son nom.",
+      description:
+        "Récupère les statistiques de base d'un champion de League of Legends par son nom.",
       inputSchema: {
         championName: z.string().describe('Le nom du champion (ex: Yasuo, Ahri).'),
       },
@@ -23,48 +28,45 @@ export function createMCPLoLServer() {
       if (!RIOT_API_KEY) {
         return {
           content: [
-            { type: 'text', text: "Erreur: RIOT_API_KEY n'est pas configurée." },
+            { type: 'text', text: "Erreur : RIOT_API_KEY n'est pas configurée." },
           ],
           isError: true,
         };
       }
+
       try {
         const versionsResponse = await axios.get(
-          'https://ddragon.leagueoflegends.com/api/versions.json'
+          'https://ddragon.leagueoflegends.com/api/versions.json',
         );
         const latestVersion = versionsResponse.data[0];
+
         const allChampionsResponse = await axios.get(
-          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`
+          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`,
         );
         const championsData = allChampionsResponse.data.data;
 
+        // Recherche insensible à la casse + alias MonkeyKing
         let championKey = Object.keys(championsData).find(
-          (key) => key.toLowerCase() === championName.toLowerCase()
+          (key) => key.toLowerCase() === championName.toLowerCase(),
         );
         if (!championKey) {
           championKey = Object.keys(championsData).find(
-            (key) => championsData[key].id.toLowerCase() === championName.toLowerCase()
+            (key) => championsData[key].id.toLowerCase() === championName.toLowerCase(),
           );
         }
         if (championName.toLowerCase() === 'wukong') championKey = 'MonkeyKing';
 
         if (!championKey || !championsData[championKey]) {
           return {
-            content: [
-              {
-                type: 'text',
-                text: `Champion "${championName}" non trouvé.`,
-              },
-            ],
+            content: [{ type: 'text', text: `Champion "${championName}" non trouvé.` }],
             isError: true,
           };
         }
 
         const champion = championsData[championKey];
+
         return {
-          content: [
-            { type: 'text', text: JSON.stringify(champion, null, 2) },
-          ],
+          content: [{ type: 'text', text: JSON.stringify(champion, null, 2) }],
           structuredContent: {
             id: champion.id,
             name: champion.name,
@@ -79,15 +81,18 @@ export function createMCPLoLServer() {
           content: [
             {
               type: 'text',
-              text: `Erreur lors de la récupération des stats pour ${championName}. Détails: ${error.message}`,
+              text: `Erreur lors de la récupération des stats pour ${championName}. Détails : ${error.message}`,
             },
           ],
           isError: true,
         };
       }
-    }
+    },
   );
 
+  /* ------------------------------------------------------------------ */
+  /*  TOOL : get_all_items                                              */
+  /* ------------------------------------------------------------------ */
   server.registerTool(
     'get_all_items',
     {
@@ -98,46 +103,57 @@ export function createMCPLoLServer() {
     async () => {
       try {
         const versionsResponse = await axios.get(
-          'https://ddragon.leagueoflegends.com/api/versions.json'
+          'https://ddragon.leagueoflegends.com/api/versions.json',
         );
         const latestVersion = versionsResponse.data[0];
+
         const itemsResponse = await axios.get(
-          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/item.json`
+          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/item.json`,
         );
         const items = itemsResponse.data.data;
+
         return {
           content: [{ type: 'text', text: JSON.stringify(items, null, 2) }],
           structuredContent: items,
         };
       } catch (error) {
+        // Fallback local
         try {
-          const localData = await import('./data/items.json', {
-            with: { type: 'json' },
-          });
+          const json = await readFile(
+            new URL('./data/items.json', import.meta.url),
+            'utf-8',
+          );
+          const localData = JSON.parse(json);
+
           return {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify(localData.default, null, 2),
+                text:
+                  "Données locales utilisées car la récupération depuis l'API a échoué :\n" +
+                  JSON.stringify(localData, null, 2),
               },
             ],
-            structuredContent: localData.default,
+            structuredContent: localData,
           };
         } catch (e) {
           return {
             content: [
               {
                 type: 'text',
-                text: `Erreur lors de la récupération des objets. Détails: ${error.message}`,
+                text: `Erreur lors de la récupération des objets. Détails : ${error.message}`,
               },
             ],
             isError: true,
           };
         }
       }
-    }
+    },
   );
 
+  /* ------------------------------------------------------------------ */
+  /*  TOOL : get_all_runes                                              */
+  /* ------------------------------------------------------------------ */
   server.registerTool(
     'get_all_runes',
     {
@@ -147,44 +163,52 @@ export function createMCPLoLServer() {
     async () => {
       try {
         const versionsResponse = await axios.get(
-          'https://ddragon.leagueoflegends.com/api/versions.json'
+          'https://ddragon.leagueoflegends.com/api/versions.json',
         );
         const latestVersion = versionsResponse.data[0];
+
         const runesResponse = await axios.get(
-          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/runesReforged.json`
+          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/runesReforged.json`,
         );
         const runes = runesResponse.data;
+
         return {
           content: [{ type: 'text', text: JSON.stringify(runes, null, 2) }],
           structuredContent: runes,
         };
       } catch (error) {
+        // Fallback local
         try {
-          const localData = await import('./data/runes.json', {
-            with: { type: 'json' },
-          });
+          const json = await readFile(
+            new URL('./data/runes.json', import.meta.url),
+            'utf-8',
+          );
+          const localData = JSON.parse(json);
+
           return {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify(localData.default, null, 2),
+                text:
+                  "Données locales utilisées car la récupération depuis l'API a échoué :\n" +
+                  JSON.stringify(localData, null, 2),
               },
             ],
-            structuredContent: localData.default,
+            structuredContent: localData,
           };
         } catch (e) {
           return {
             content: [
               {
                 type: 'text',
-                text: `Erreur lors de la récupération des runes. Détails: ${error.message}`,
+                text: `Erreur lors de la récupération des runes. Détails : ${error.message}`,
               },
             ],
             isError: true,
           };
         }
       }
-    }
+    },
   );
 
   return server;
