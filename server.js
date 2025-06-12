@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import axios from 'axios';
 import { z } from 'zod';
 import 'dotenv/config';
+import { readFile } from 'fs/promises';
 
 const RIOT_API_KEY = process.env.RIOT_API_KEY;
 
@@ -111,17 +112,22 @@ export function createMCPLoLServer() {
         };
       } catch (error) {
         try {
-          const localData = await import('./data/items.json', {
-            assert: { type: 'json' },
-          });
+          const json = await readFile(
+            new URL('./data/items.json', import.meta.url),
+            'utf-8'
+          );
+          const localData = JSON.parse(json);
           return {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify(localData.default, null, 2),
+                text:
+                  'Données locales utilisées car la récupération depuis ' +
+                  "l'API a échoué:\n" +
+                  JSON.stringify(localData, null, 2),
               },
             ],
-            structuredContent: localData.default,
+            structuredContent: localData,
           };
         } catch (e) {
           return {
@@ -160,17 +166,22 @@ export function createMCPLoLServer() {
         };
       } catch (error) {
         try {
-          const localData = await import('./data/runes.json', {
-            assert: { type: 'json' },
-          });
+          const json = await readFile(
+            new URL('./data/runes.json', import.meta.url),
+            'utf-8'
+          );
+          const localData = JSON.parse(json);
           return {
             content: [
               {
                 type: 'text',
-                text: JSON.stringify(localData.default, null, 2),
+                text:
+                  'Données locales utilisées car la récupération depuis ' +
+                  "l'API a échoué:\n" +
+                  JSON.stringify(localData, null, 2),
               },
             ],
-            structuredContent: localData.default,
+            structuredContent: localData,
           };
         } catch (e) {
           return {
