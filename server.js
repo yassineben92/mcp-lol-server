@@ -8,10 +8,10 @@ import { readFile } from 'fs/promises';
 /*  CACHE & HELPERS                                                   */
 /* ------------------------------------------------------------------ */
 
-let cachedChampions: Record<string, any> | null = null;
-let cachedItems: Record<string, any> | null = null;
+let cachedChampions = null;
+let cachedItems = null;
 
-async function loadChampion(championName: string) {
+async function loadChampion(championName) {
   if (!cachedChampions) {
     try {
       const versionsResponse = await axios.get(
@@ -130,7 +130,7 @@ export function createMCPLoLServer() {
         }
 
         const simplifiedSpells = Array.isArray(champion.spells)
-          ? champion.spells.map((s: any) => ({
+          ? champion.spells.map((s) => ({
               id: s.id,
               name: s.name,
               description: s.description,
@@ -152,7 +152,7 @@ export function createMCPLoLServer() {
             spells: simplifiedSpells,
           },
         };
-      } catch (error: any) {
+      } catch (error) {
         return {
           content: [
             {
@@ -188,7 +188,7 @@ export function createMCPLoLServer() {
         if (query) {
           const q = query.toLowerCase();
           entries = entries.filter(
-            ([id, item]: [string, any]) =>
+            ([id, item]) =>
               id.toLowerCase().includes(q) || item.name.toLowerCase().includes(q),
           );
         }
@@ -197,8 +197,8 @@ export function createMCPLoLServer() {
         if (tag) {
           const t = tag.toLowerCase();
           entries = entries.filter(
-            ([, item]: [string, any]) =>
-              Array.isArray(item.tags) && item.tags.some((tg: string) => tg.toLowerCase() === t),
+            ([, item]) =>
+              Array.isArray(item.tags) && item.tags.some((tg) => tg.toLowerCase() === t),
           );
         }
 
@@ -216,7 +216,7 @@ export function createMCPLoLServer() {
           content: [{ type: 'text', text: JSON.stringify(simplified, null, 2) }],
           structuredContent: simplified,
         };
-      } catch (error: any) {
+      } catch (error) {
         return {
           content: [
             {
@@ -272,7 +272,7 @@ export function createMCPLoLServer() {
             ],
             structuredContent: localData,
           };
-        } catch (e: any) {
+        } catch (e) {
           return {
             content: [
               {
