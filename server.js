@@ -4,10 +4,72 @@ import { z } from 'zod';
 import 'dotenv/config';
 import { readFile } from 'fs/promises';
 
-let cachedItems = null;
+/* ------------------------------------------------------------------ */
+/*  CACHE & HELPERS                                                   */
+/* ------------------------------------------------------------------ */
+
+let cachedChampions: Record<string, any> | null = null;
+let cachedItems: Record<string, any> | null = null;
+
+async function loadChampion(championName: string) {
+  if (!cachedChampions) {
+    try {
+      const versionsResponse = await axios.get(
+        'https://ddragon.leagueoflegends.com/api/versions.json',
+      );
+      const latestVersion = versionsResponse.data[0];
+
+      const allChampionsResponse = await axios.get(
+        `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`,
+      );
+      cachedChampions = allChampionsResponse.data.data;
+    } catch {
+      const json = await readFile(
+        new URL('./data/champions.json', import.meta.url),
+        'utf-8',
+      );
+      cachedChampions = JSON.parse(json);
+    }
+  }
+
+  let championKey = Object.keys(cachedChampions).find(
+    (key) => key.toLowerCase() === championName.toLowerCase(),
+  );
+  if (!championKey) {
+    championKey = Object.keys(cachedChampions).find(
+      (key) => cachedChampions![key].id.toLowerCase() === championName.toLowerCase(),
+    );
+  }
+  if (championName.toLowerCase() === 'wukong') championKey = 'MonkeyKing';
+
+  if (!championKey || !cachedChampions[championKey]) return null;
+
+  const basicData = cachedChampions[championKey];
+
+  /* Si on a déjà les sorts détaillés, pas besoin d’appeler l’API à nouveau */
+  if (basicData.spells) return basicData;
+
+  /* Sinon, on complète avec les détails */
+  try {
+    const versionsResponse = await axios.get(
+      'https://ddragon.leagueoflegends.com/api/versions.json',
+    );
+    const latestVersion = versionsResponse.data[0];
+
+    const detailResponse = await axios.get(
+      `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion/${championKey}.json`,
+    );
+    const full = detailResponse.data.data[championKey];
+    cachedChampions[championKey] = full;
+    return full;
+  } catch {
+    return basicData;
+  }
+}
 
 async function loadItems() {
   if (cachedItems) return cachedItems;
+
   try {
     const versionsResponse = await axios.get(
       'https://ddragon.leagueoflegends.com/api/versions.json',
@@ -18,13 +80,16 @@ async function loadItems() {
       `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/item.json`,
     );
     cachedItems = itemsResponse.data.data;
-    return cachedItems;
-  } catch (_) {
+  } catch {
     const json = await readFile(new URL('./data/items.json', import.meta.url), 'utf-8');
     cachedItems = JSON.parse(json);
-    return cachedItems;
   }
+  return cachedItems;
 }
+
+/* ------------------------------------------------------------------ */
+/*  SERVER INITIALISATION                                             */
+/* ------------------------------------------------------------------ */
 
 const RIOT_API_KEY = process.env.RIOT_API_KEY;
 
@@ -49,43 +114,30 @@ export function createMCPLoLServer() {
     async ({ championName }) => {
       if (!RIOT_API_KEY) {
         return {
-          content: [
-            { type: 'text', text: "Erreur : RIOT_API_KEY n'est pas configurée." },
-          ],
+          content: [{ type: 'text', text: "Erreur : RIOT_API_KEY n'est pas configurée." }],
           isError: true,
         };
       }
 
       try {
-        const versionsResponse = await axios.get(
-          'https://ddragon.leagueoflegends.com/api/versions.json',
-        );
-        const latestVersion = versionsResponse.data[0];
+        const champion = await loadChampion(championName);
 
-        const allChampionsResponse = await axios.get(
-          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`,
-        );
-        const championsData = allChampionsResponse.data.data;
-
-        // Recherche insensible à la casse + alias MonkeyKing
-        let championKey = Object.keys(championsData).find(
-          (key) => key.toLowerCase() === championName.toLowerCase(),
-        );
-        if (!championKey) {
-          championKey = Object.keys(championsData).find(
-            (key) => championsData[key].id.toLowerCase() === championName.toLowerCase(),
-          );
-        }
-        if (championName.toLowerCase() === 'wukong') championKey = 'MonkeyKing';
-
-        if (!championKey || !championsData[championKey]) {
+        if (!champion) {
           return {
             content: [{ type: 'text', text: `Champion "${championName}" non trouvé.` }],
             isError: true,
           };
         }
 
-        const champion = championsData[championKey];
+        const simplifiedSpells = Array.isArray(champion.spells)
+          ? champion.spells.map((s: any) => ({
+              id: s.id,
+              name: s.name,
+              description: s.description,
+              cooldown: s.cooldown,
+              cost: s.cost,
+            }))
+          : [];
 
         return {
           content: [{ type: 'text', text: JSON.stringify(champion, null, 2) }],
@@ -96,9 +148,11 @@ export function createMCPLoLServer() {
             stats: champion.stats,
             tags: champion.tags,
             blurb: champion.blurb,
+            passive: champion.passive,
+            spells: simplifiedSpells,
           },
         };
-      } catch (error) {
+      } catch (error: any) {
         return {
           content: [
             {
@@ -121,36 +175,39 @@ export function createMCPLoLServer() {
       description:
         'Récupère la liste complète ou filtrée des objets de League of Legends.',
       inputSchema: {
-        query: z.string().optional().describe("Filtre par nom ou identifiant"),
+        query: z.string().optional().describe('Filtre par nom ou identifiant'),
         tag: z.string().optional().describe("Filtre par tag d'objet (Damage, etc.)"),
       },
     },
     async ({ query, tag }) => {
       try {
         const data = await loadItems();
-        let entries = Object.entries(data);
+        let entries = Object.entries(data); // [id, item]
 
+        /* Filtre texte libre ----------------------------------------- */
         if (query) {
           const q = query.toLowerCase();
           entries = entries.filter(
-            ([id, item]) =>
+            ([id, item]: [string, any]) =>
               id.toLowerCase().includes(q) || item.name.toLowerCase().includes(q),
           );
         }
 
+        /* Filtre par tag --------------------------------------------- */
         if (tag) {
           const t = tag.toLowerCase();
           entries = entries.filter(
-            ([, item]) =>
-              Array.isArray(item.tags) &&
-              item.tags.some((tg) => tg.toLowerCase() === t),
+            ([, item]: [string, any]) =>
+              Array.isArray(item.tags) && item.tags.some((tg: string) => tg.toLowerCase() === t),
           );
         }
 
+        /* Projection simplifiée -------------------------------------- */
         const simplified = entries.map(([id, item]) => ({
           id,
           name: item.name,
           plaintext: item.plaintext,
+          description: item.description,
           tags: item.tags,
           stats: item.stats,
         }));
@@ -159,7 +216,7 @@ export function createMCPLoLServer() {
           content: [{ type: 'text', text: JSON.stringify(simplified, null, 2) }],
           structuredContent: simplified,
         };
-      } catch (error) {
+      } catch (error: any) {
         return {
           content: [
             {
@@ -199,12 +256,9 @@ export function createMCPLoLServer() {
           structuredContent: runes,
         };
       } catch (error) {
-        // Fallback local
+        /* Fallback local -------------------------------------------- */
         try {
-          const json = await readFile(
-            new URL('./data/runes.json', import.meta.url),
-            'utf-8',
-          );
+          const json = await readFile(new URL('./data/runes.json', import.meta.url), 'utf-8');
           const localData = JSON.parse(json);
 
           return {
@@ -218,7 +272,7 @@ export function createMCPLoLServer() {
             ],
             structuredContent: localData,
           };
-        } catch (e) {
+        } catch (e: any) {
           return {
             content: [
               {

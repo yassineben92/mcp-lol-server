@@ -2,8 +2,10 @@ import express from 'express';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { createMCPLoLServer } from './server.js';
 import 'dotenv/config'; // Pour s'assurer que les variables d'environnement sont chargées
+import cors from 'cors';
 
 const app = express();
+app.use(cors());
 const PORT = process.env.PORT || 3000; // Railway nous donne le port via process.env.PORT
 
 // On crée notre instance de serveur MCP LoL
