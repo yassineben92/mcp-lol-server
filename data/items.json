@@ -2,18 +2,21 @@
   "3006": {
     "name": "Berserker's Greaves",
     "plaintext": "Attack Speed boots",
+    "description": "<stats>+35% Attack Speed<\/stats><br><br><passive>UNIQUE Passive - Enhanced Movement: +45 Movement Speed<\/passive>",
     "tags": ["Boots", "AttackSpeed"],
     "stats": {"FlatMovementSpeedMod": 45}
   },
   "6672": {
     "name": "Kraken Slayer",
     "plaintext": "Every third attack deals bonus damage",
+    "description": "<passive>UNIQUE Passive: Every third attack deals additional damage based on the target's health<\/passive>",
     "tags": ["Damage", "AttackSpeed"],
     "stats": {"FlatPhysicalDamageMod": 40}
   },
   "3031": {
     "name": "Infinity Edge",
     "plaintext": "Massive critical strike damage",
+    "description": "<passive>UNIQUE Passive: Doubles critical strike chance and increases critical damage<\/passive>",
     "tags": ["Damage", "CriticalStrike"],
     "stats": {"FlatPhysicalDamageMod": 65}
   }

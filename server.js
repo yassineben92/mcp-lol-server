@@ -4,7 +4,67 @@ import { z } from 'zod';
 import 'dotenv/config';
 import { readFile } from 'fs/promises';
 
+let cachedChampions = null;
+
 let cachedItems = null;
+
+async function loadChampion(championName) {
+  if (!cachedChampions) {
+    try {
+      const versionsResponse = await axios.get(
+        'https://ddragon.leagueoflegends.com/api/versions.json',
+      );
+      const latestVersion = versionsResponse.data[0];
+
+      const allChampionsResponse = await axios.get(
+        `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`,
+      );
+      cachedChampions = allChampionsResponse.data.data;
+    } catch (_) {
+      const json = await readFile(
+        new URL('./data/champions.json', import.meta.url),
+        'utf-8',
+      );
+      cachedChampions = JSON.parse(json);
+    }
+  }
+
+  let championKey = Object.keys(cachedChampions).find(
+    (key) => key.toLowerCase() === championName.toLowerCase(),
+  );
+  if (!championKey) {
+    championKey = Object.keys(cachedChampions).find(
+      (key) => cachedChampions[key].id.toLowerCase() === championName.toLowerCase(),
+    );
+  }
+  if (championName.toLowerCase() === 'wukong') championKey = 'MonkeyKing';
+
+  if (!championKey || !cachedChampions[championKey]) {
+    return null;
+  }
+
+  const basicData = cachedChampions[championKey];
+
+  if (basicData.spells) {
+    return basicData;
+  }
+
+  try {
+    const versionsResponse = await axios.get(
+      'https://ddragon.leagueoflegends.com/api/versions.json',
+    );
+    const latestVersion = versionsResponse.data[0];
+
+    const detailResponse = await axios.get(
+      `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion/${championKey}.json`,
+    );
+    const full = detailResponse.data.data[championKey];
+    cachedChampions[championKey] = full;
+    return full;
+  } catch (_) {
+    return basicData;
+  }
+}
 
 async function loadItems() {
   if (cachedItems) return cachedItems;
@@ -57,35 +117,24 @@ export function createMCPLoLServer() {
       }
 
       try {
-        const versionsResponse = await axios.get(
-          'https://ddragon.leagueoflegends.com/api/versions.json',
-        );
-        const latestVersion = versionsResponse.data[0];
+        const champion = await loadChampion(championName);
 
-        const allChampionsResponse = await axios.get(
-          `https://ddragon.leagueoflegends.com/cdn/${latestVersion}/data/en_US/champion.json`,
-        );
-        const championsData = allChampionsResponse.data.data;
-
-        // Recherche insensible à la casse + alias MonkeyKing
-        let championKey = Object.keys(championsData).find(
-          (key) => key.toLowerCase() === championName.toLowerCase(),
-        );
-        if (!championKey) {
-          championKey = Object.keys(championsData).find(
-            (key) => championsData[key].id.toLowerCase() === championName.toLowerCase(),
-          );
-        }
-        if (championName.toLowerCase() === 'wukong') championKey = 'MonkeyKing';
-
-        if (!championKey || !championsData[championKey]) {
+        if (!champion) {
           return {
             content: [{ type: 'text', text: `Champion "${championName}" non trouvé.` }],
             isError: true,
           };
         }
 
-        const champion = championsData[championKey];
+        const simplifiedSpells = Array.isArray(champion.spells)
+          ? champion.spells.map((s) => ({
+              id: s.id,
+              name: s.name,
+              description: s.description,
+              cooldown: s.cooldown,
+              cost: s.cost,
+            }))
+          : [];
 
         return {
           content: [{ type: 'text', text: JSON.stringify(champion, null, 2) }],
@@ -96,6 +145,8 @@ export function createMCPLoLServer() {
             stats: champion.stats,
             tags: champion.tags,
             blurb: champion.blurb,
+            passive: champion.passive,
+            spells: simplifiedSpells,
           },
         };
       } catch (error) {
@@ -151,6 +202,7 @@ export function createMCPLoLServer() {
           id,
           name: item.name,
           plaintext: item.plaintext,
+          description: item.description,
           tags: item.tags,
           stats: item.stats,
         }));
