@@ -1,0 +1,20 @@
+{
+  "3006": {
+    "name": "Berserker's Greaves",
+    "plaintext": "Attack Speed boots",
+    "tags": ["Boots", "AttackSpeed"],
+    "stats": {"FlatMovementSpeedMod": 45}
+  },
+  "6672": {
+    "name": "Kraken Slayer",
+    "plaintext": "Every third attack deals bonus damage",
+    "tags": ["Damage", "AttackSpeed"],
+    "stats": {"FlatPhysicalDamageMod": 40}
+  },
+  "3031": {
+    "name": "Infinity Edge",
+    "plaintext": "Massive critical strike damage",
+    "tags": ["Damage", "CriticalStrike"],
+    "stats": {"FlatPhysicalDamageMod": 65}
+  }
+}

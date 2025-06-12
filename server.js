@@ -110,15 +110,30 @@ export function createMCPLoLServer() {
           structuredContent: items,
         };
       } catch (error) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Erreur lors de la récupération des objets. Détails: ${error.message}`,
-            },
-          ],
-          isError: true,
-        };
+        try {
+          const localData = await import('./data/items.json', {
+            assert: { type: 'json' },
+          });
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(localData.default, null, 2),
+              },
+            ],
+            structuredContent: localData.default,
+          };
+        } catch (e) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Erreur lors de la récupération des objets. Détails: ${error.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
       }
     }
   );
@@ -144,15 +159,30 @@ export function createMCPLoLServer() {
           structuredContent: runes,
         };
       } catch (error) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Erreur lors de la récupération des runes. Détails: ${error.message}`,
-            },
-          ],
-          isError: true,
-        };
+        try {
+          const localData = await import('./data/runes.json', {
+            assert: { type: 'json' },
+          });
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(localData.default, null, 2),
+              },
+            ],
+            structuredContent: localData.default,
+          };
+        } catch (e) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `Erreur lors de la récupération des runes. Détails: ${error.message}`,
+              },
+            ],
+            isError: true,
+          };
+        }
       }
     }
   );
